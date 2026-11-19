@@ -1,0 +1,28 @@
+# Render Blueprint: одним кліком створює веб-сервіс (React + Node) і базу PostgreSQL
+databases:
+  - name: jobmatch-db
+    plan: free
+    databaseName: jobmatch
+    user: jobmatch
+
+services:
+  - type: web
+    name: jobmatch
+    runtime: node
+    plan: free
+    buildCommand: npm run render-build
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: jobmatch-db
+          property: connectionString
+      - key: JWT_SECRET
+        generateValue: true
+      - key: AUTO_SEED
+        value: "true"

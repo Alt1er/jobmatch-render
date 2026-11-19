@@ -1,0 +1,17 @@
+# Швидкий запуск PostgreSQL для розробки:  docker compose up -d
+# Параметри збігаються з backend/.env.example
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: jobmatch
+      POSTGRES_PASSWORD: jobmatch
+      POSTGRES_DB: jobmatch
+    ports:
+      - '5432:5432'
+    volumes:
+      - jobmatch-data:/var/lib/postgresql/data
+
+volumes:
+  jobmatch-data:
