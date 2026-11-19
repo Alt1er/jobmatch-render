@@ -1,0 +1,27 @@
+# Автоматичне тестування при кожному push / pull request (профілактичне обслуговування).
+# Render розгортає нову версію лише з гілки main; якщо тести «червоні» — не зливайте зміни в main.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: '0 6 * * 1'   # щопонеділка: перевірка, що проєкт збирається з актуальними залежностями
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Встановити залежності
+        run: npm --prefix backend ci && npm --prefix frontend ci
+      - name: Наскрізні тести API (вбудований PostgreSQL)
+        run: npm test
+      - name: Збірка фронтенду
+        run: npm run build
+      - name: Аудит безпеки залежностей
+        run: npm --prefix backend audit --omit=dev --audit-level=high || true

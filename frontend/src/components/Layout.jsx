@@ -1,5 +1,7 @@
-import { NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import { useAuth, homeFor } from '../auth';
+import { Link, NavLink, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { api } from '../api';
+import { useAuth, homeFor, roleName } from '../auth';
 import { Logo, Spinner } from './ui';
 
 export function Navbar() {
@@ -26,13 +28,15 @@ export function Navbar() {
             </>
           )}
           {user?.role === 'employer' && <NavLink to="/employer">Мої вакансії</NavLink>}
+          {user?.role === 'admin' && <NavLink to="/admin">Адмін-панель</NavLink>}
+          <NavLink to="/feedback">Зворотний зв'язок</NavLink>
         </nav>
         <div className="nav-actions">
           {user ? (
             <>
               <span className="nav-user" title={user.email}>
                 {user.role === 'employer' ? user.companyName || user.name : user.name}
-                <small>{user.role === 'employer' ? 'Роботодавець' : 'Кандидат'}</small>
+                <small>{roleName[user.role]}</small>
               </span>
               <button className="btn btn-ghost" onClick={onLogout}>
                 Вийти
@@ -55,11 +59,20 @@ export function Navbar() {
 }
 
 export function Footer() {
+  const [version, setVersion] = useState('');
+  useEffect(() => {
+    api
+      .get('/meta')
+      .then((d) => setVersion(d.version))
+      .catch(() => {});
+  }, []);
   return (
     <footer className="footer">
       <div className="container">
-        <span>JobMatch — інтелектуальне зіставлення вакансій і резюме</span>
-        <span className="muted">Оцінка збігу враховує навички, схожість тексту, посаду та досвід</span>
+        <span>JobMatch — інтелектуальне зіставлення вакансій і резюме{version && <span className="muted"> · v{version}</span>}</span>
+        <span className="muted">
+          Знайшли помилку чи маєте ідею? <Link to="/feedback">Напишіть нам</Link>
+        </span>
       </div>
     </footer>
   );

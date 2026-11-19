@@ -1,5 +1,5 @@
 /**
- * Наскрізний тест API. База піднімається автоматично (вбудований PostgreSQL), демо-дані додаються самі.
+ * Наскрізний тест API. База піднімається автоматично (вбудований PostgreSQL), початкові дані додаються самі.
  * Запуск: npm test
  */
 const test = require('node:test');
@@ -13,6 +13,9 @@ const pool = require('../src/db/pool');
 const migrate = require('../src/db/migrate');
 const seed = require('../src/db/seed');
 const { ensureDatabase } = require('../src/db/embedded');
+const bcrypt = require('bcryptjs');
+const { runMaintenance } = require('../src/db/maintenance');
+const { TEST_PASSWORD, ADMIN, CANDIDATE } = require('../src/db/accounts');
 
 const SAMPLES = path.join(__dirname, '..', '..', 'samples');
 let server;
@@ -43,7 +46,7 @@ function fileForm(name, extra = {}) {
 }
 
 test.before(async () => {
-  // тести самі піднімають вбудовану БД (або підключаються до запущеної) і додають демо-дані
+  // тести самі піднімають вбудовану БД (або підключаються до запущеної) і додають початкові дані
   stopDb = await ensureDatabase();
   await migrate();
   await seed({ quiet: true });
@@ -239,7 +242,96 @@ test('чуже резюме недоступне іншому кандидату
   assert.equal(r.status, 404);
 });
 
+test('тестові акаунти: нові паролі працюють, старий пароль Demo1234! — ні', async () => {
+  let r = await api('POST', '/api/auth/login', { json: { email: CANDIDATE.email, password: TEST_PASSWORD } });
+  assert.equal(r.status, 200);
+  r = await api('POST', '/api/auth/login', { json: { email: CANDIDATE.email, password: 'Demo1234!' } });
+  assert.equal(r.status, 401);
+  // старий акаунт першої версії після обслуговування втрачає старий пароль
+  const oldHash = await bcrypt.hash('Demo1234!', 4);
+  await pool.query(
+    "INSERT INTO users (name, email, password_hash, role) VALUES ('Old', 'candidate@demo.ua', $1, 'candidate') ON CONFLICT (email) DO UPDATE SET password_hash = $1",
+    [oldHash]
+  );
+  await runMaintenance({ quiet: true });
+  r = await api('POST', '/api/auth/login', { json: { email: 'candidate@demo.ua', password: 'Demo1234!' } });
+  assert.equal(r.status, 401);
+  await pool.query("DELETE FROM users WHERE email = 'candidate@demo.ua'");
+  // підказка на сторінці входу не містить слова demo
+  r = await api('GET', '/api/meta');
+  assert.equal(r.status, 200);
+  assert.ok(!JSON.stringify(r.data).toLowerCase().includes('demo'));
+});
+
+test('health: стан сервера та бази', async () => {
+  const r = await api('GET', '/api/health');
+  assert.equal(r.status, 200);
+  assert.equal(r.data.status, 'ok');
+  assert.equal(r.data.db, 'ok');
+  assert.ok(r.data.version);
+});
+
+test('зворотний зв\'язок: звернення, відповідь адміністратора, права доступу', async () => {
+  // анонімне звернення
+  let r = await api('POST', '/api/feedback', { json: { category: 'bug', message: 'коротко' } });
+  assert.equal(r.status, 400);
+  r = await api('POST', '/api/feedback', {
+    json: { category: 'idea', message: 'Додайте фільтр вакансій за зарплатою', email: `anon${stamp}@test.ua`, rating: 4 },
+  });
+  assert.equal(r.status, 201);
+
+  // звернення від кандидата
+  r = await api('POST', '/api/feedback', {
+    token: ctx.cand,
+    json: { category: 'bug', priority: 'high', page: '/cabinet', message: 'Після завантаження PDF не оновився список резюме' },
+  });
+  assert.equal(r.status, 201);
+  const fid = r.data.feedback.id;
+  assert.ok(r.data.feedback.email.endsWith('@test.ua'));
+
+  // кандидат не має доступу до адмін-функцій
+  r = await api('GET', '/api/feedback', { token: ctx.cand });
+  assert.equal(r.status, 403);
+  r = await api('GET', '/api/admin/stats', { token: ctx.cand });
+  assert.equal(r.status, 403);
+
+  // адміністратор
+  const login = await api('POST', '/api/auth/login', { json: { email: ADMIN.email, password: ADMIN.password } });
+  assert.equal(login.status, 200);
+  assert.equal(login.data.user.role, 'admin');
+  const admin = login.data.token;
+  r = await api('GET', '/api/feedback?status=new', { token: admin });
+  assert.equal(r.status, 200);
+  assert.ok(r.data.feedback.some((f) => f.id === fid));
+  r = await api('PATCH', `/api/feedback/${fid}`, {
+    token: admin,
+    json: { status: 'resolved', reply: 'Виправлено у версії 1.1.0, дякуємо!' },
+  });
+  assert.equal(r.status, 200);
+  assert.equal(r.data.feedback.status, 'resolved');
+  r = await api('PATCH', `/api/feedback/${fid}`, { token: admin, json: { status: 'wrong' } });
+  assert.equal(r.status, 400);
+
+  // кандидат бачить відповідь
+  r = await api('GET', '/api/feedback/mine', { token: ctx.cand });
+  const mine = r.data.feedback.find((f) => f.id === fid);
+  assert.equal(mine.status, 'resolved');
+  assert.match(mine.admin_reply, /Виправлено/);
+
+  r = await api('GET', '/api/admin/stats', { token: admin });
+  assert.equal(r.status, 200);
+  assert.ok(r.data.feedback.byStatus.resolved >= 1);
+  assert.ok(r.data.system.version);
+
+  // через реєстрацію не можна стати адміністратором
+  r = await api('POST', '/api/auth/register', {
+    json: { name: 'Хакер', email: `adm${stamp}@test.ua`, password: 'Password1!', role: 'admin' },
+  });
+  assert.equal(r.status, 400);
+});
+
 test('очищення тестових даних', async () => {
+  await pool.query("DELETE FROM feedback WHERE email LIKE '%" + stamp + "@test.ua'");
   await pool.query("DELETE FROM users WHERE email LIKE '%" + stamp + "@test.ua'");
   const { rows } = await pool.query('SELECT file_path FROM resumes');
   assert.ok(rows.length >= 0);

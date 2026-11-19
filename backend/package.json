@@ -1,6 +1,6 @@
 {
   "name": "jobmatch-backend",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Веб-платформа інтелектуального зіставлення вакансій і резюме — бекенд",
   "main": "src/server.js",
   "type": "commonjs",

@@ -1,13 +1,8 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth, homeFor } from '../auth';
+import { api } from '../api';
 import { ErrorBox } from '../components/ui';
-
-const DEMO = [
-  { label: 'Кандидат', email: 'candidate@demo.ua' },
-  { label: 'Роботодавець (TechNova)', email: 'hr@technova.demo' },
-  { label: 'Роботодавець (DataBridge)', email: 'hr@databridge.demo' },
-];
 
 export default function Login() {
   const { user, login } = useAuth();
@@ -17,6 +12,14 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const [testAccounts, setTestAccounts] = useState(null);
+
+  useEffect(() => {
+    api
+      .get('/meta')
+      .then((d) => setTestAccounts(d.testAccounts))
+      .catch(() => {});
+  }, []);
 
   if (user) return <Navigate to={homeFor(user)} replace />;
 
@@ -56,24 +59,27 @@ export default function Login() {
           Немає акаунта? <Link to="/register">Зареєструватися</Link>
         </p>
 
-        <details className="demo-box">
-          <summary>Демо-акаунти (пароль: Demo1234!)</summary>
-          <div className="demo-list">
-            {DEMO.map((d) => (
-              <button
-                type="button"
-                key={d.email}
-                className="btn btn-ghost btn-sm"
-                onClick={() => {
-                  setEmail(d.email);
-                  setPassword('Demo1234!');
-                }}
-              >
-                {d.label}
-              </button>
-            ))}
-          </div>
-        </details>
+        {testAccounts && (
+          <details className="test-box">
+            <summary>Тестові акаунти для перевірки</summary>
+            <div className="test-list">
+              {testAccounts.list.map((d) => (
+                <button
+                  type="button"
+                  key={d.email}
+                  className="btn btn-ghost btn-sm"
+                  onClick={() => {
+                    setEmail(d.email);
+                    setPassword(testAccounts.password);
+                  }}
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+            <p className="small">Кнопка підставляє пошту й пароль у форму.</p>
+          </details>
+        )}
       </form>
     </div>
   );

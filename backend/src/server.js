@@ -2,6 +2,7 @@ const fs = require('fs');
 const config = require('./config');
 const migrate = require('./db/migrate');
 const seed = require('./db/seed');
+const { runMaintenance } = require('./db/maintenance');
 const pool = require('./db/pool');
 const { ensureDatabase } = require('./db/embedded');
 const app = require('./app');
@@ -13,10 +14,11 @@ async function prepareDatabase() {
   if (config.autoSeed) {
     const { rows } = await pool.query('SELECT COUNT(*)::int AS n FROM users');
     if (rows[0].n === 0) {
-      console.log('• База порожня — додаю демо-дані…');
+      console.log('• База порожня — додаю початкові дані…');
       await seed();
     }
   }
+  await runMaintenance(); // оновлення старих тестових акаунтів + обліковий запис адміністратора
   return stopDb;
 }
 

@@ -12,6 +12,8 @@ import CandidateApplications from './pages/candidate/Applications';
 import EmployerVacancies from './pages/employer/MyVacancies';
 import VacancyForm from './pages/employer/VacancyForm';
 import VacancyCandidates from './pages/employer/VacancyCandidates';
+import Feedback from './pages/Feedback';
+import AdminPanel from './pages/admin/AdminPanel';
 
 function NotFound() {
   return (
@@ -97,6 +99,15 @@ export default function App() {
           element={
             <RequireAuth role="employer">
               <VacancyCandidates />
+            </RequireAuth>
+          }
+        />
+        <Route path="feedback" element={<Feedback />} />
+        <Route
+          path="admin"
+          element={
+            <RequireAuth role="admin">
+              <AdminPanel />
             </RequireAuth>
           }
         />

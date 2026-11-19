@@ -50,4 +50,7 @@ export function AuthProvider({ children }) {
 
 export const useAuth = () => useContext(AuthContext);
 
-export const homeFor = (user) => (user?.role === 'employer' ? '/employer' : '/cabinet');
+export const homeFor = (user) =>
+  user?.role === 'employer' ? '/employer' : user?.role === 'admin' ? '/admin' : '/cabinet';
+
+export const roleName = { candidate: 'Кандидат', employer: 'Роботодавець', admin: 'Адміністратор' };

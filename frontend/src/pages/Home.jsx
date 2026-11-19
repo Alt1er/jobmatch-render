@@ -67,7 +67,7 @@ export default function Home() {
           )}
         </div>
         <div className="hero-card" aria-hidden="true">
-          <div className="demo-match">
+          <div className="preview-match">
             <ScoreRing score={92} size={76} />
             <div>
               <b>Junior Frontend розробник</b>

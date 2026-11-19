@@ -15,7 +15,11 @@ const config = {
     port: embeddedPort,
     dir: process.env.EMBEDDED_PG_DIR || path.join(__dirname, '..', '.pgdata'),
   },
-  // Автоматично додавати демо-дані, якщо в БД ще немає жодного користувача
+  version: require('../package.json').version,
+  startedAt: new Date(),
+  // Показувати підказку з тестовими акаунтами на сторінці входу (SHOW_TEST_ACCOUNTS=false — приховати)
+  showTestAccounts: process.env.SHOW_TEST_ACCOUNTS !== 'false',
+  // Автоматично додавати початкові дані, якщо в БД ще немає жодного користувача
   autoSeed: process.env.AUTO_SEED ? process.env.AUTO_SEED === 'true' : embeddedEnabled,
   jwtSecret: process.env.JWT_SECRET || 'dev-secret-change-me',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '7d',

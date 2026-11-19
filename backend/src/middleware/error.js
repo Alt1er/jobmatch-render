@@ -5,10 +5,26 @@ class HttpError extends Error {
   }
 }
 
+/** Записує серверну помилку в таблицю error_log (не блокує відповідь) */
+function logError(req, err) {
+  try {
+    const pool = require('../db/pool');
+    pool
+      .query('INSERT INTO error_log (method, path, message) VALUES ($1, $2, $3)', [
+        String(req.method || '').slice(0, 10),
+        String(req.originalUrl || '').slice(0, 300),
+        String((err && err.message) || err).slice(0, 2000),
+      ])
+      .catch(() => {});
+  } catch {
+    /* журнал недоступний — ігноруємо */
+  }
+}
+
 const asyncHandler = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 
 // eslint-disable-next-line no-unused-vars
-function errorHandler(err, _req, res, _next) {
+function errorHandler(err, req, res, _next) {
   if (err instanceof HttpError) return res.status(err.status).json({ error: err.message });
 
   if (err.code === 'LIMIT_FILE_SIZE') {
@@ -23,6 +39,7 @@ function errorHandler(err, _req, res, _next) {
   }
 
   console.error(err);
+  logError(req, err);
   res.status(500).json({ error: 'Внутрішня помилка сервера' });
 }
 

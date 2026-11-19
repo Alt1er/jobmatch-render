@@ -36,9 +36,8 @@ function requireRole(role) {
   return (req, _res, next) => {
     if (!req.user) return next(new HttpError(401, 'Потрібна авторизація'));
     if (req.user.role !== role) {
-      return next(
-        new HttpError(403, role === 'employer' ? 'Доступно лише роботодавцям' : 'Доступно лише кандидатам')
-      );
+      const text = { employer: 'Доступно лише роботодавцям', candidate: 'Доступно лише кандидатам', admin: 'Доступно лише адміністратору' };
+      return next(new HttpError(403, text[role] || 'Недостатньо прав'));
     }
     next();
   };

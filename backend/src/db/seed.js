@@ -1,5 +1,5 @@
 /**
- * Наповнення БД демо-даними: 3 роботодавці, 1 кандидат та 18 вакансій.
+ * Початкове наповнення БД: 3 роботодавці, 1 кандидат, адміністратор та 18 вакансій.
  * Запуск: npm run db:seed (безпечно запускати повторно).
  */
 const bcrypt = require('bcryptjs');
@@ -8,14 +8,8 @@ const migrate = require('./migrate');
 const { ensureDatabase } = require('./embedded');
 const repo = require('../services/repo');
 const { extractSkills } = require('../services/skills');
-
-const PASSWORD = 'Demo1234!';
-
-const EMPLOYERS = [
-  { name: 'Олена Коваль', email: 'hr@technova.demo', company: 'TechNova', industry: 'Розробка програмного забезпечення' },
-  { name: 'Андрій Мельник', email: 'hr@databridge.demo', company: 'DataBridge', industry: 'Аналітика та Data Science' },
-  { name: 'Ірина Шевченко', email: 'hr@creativelab.demo', company: 'CreativeLab', industry: 'Дизайн та продукт' },
-];
+const { TEST_PASSWORD, ADMIN, CANDIDATE, EMPLOYERS } = require('./accounts');
+const { runMaintenance } = require('./maintenance');
 
 const VACANCIES = [
   // TechNova
@@ -80,7 +74,8 @@ const VACANCIES = [
 async function seed({ quiet = false } = {}) {
   const log = quiet ? () => {} : console.log;
   await migrate();
-  const hash = await bcrypt.hash(PASSWORD, 10);
+  await runMaintenance({ quiet });
+  const hash = await bcrypt.hash(TEST_PASSWORD, 10);
 
   const companyIds = [];
   for (const e of EMPLOYERS) {
@@ -105,8 +100,8 @@ async function seed({ quiet = false } = {}) {
 
   await pool.query(
     `INSERT INTO users (name, email, password_hash, role)
-     VALUES ('Демо Кандидат', 'candidate@demo.ua', $1, 'candidate') ON CONFLICT (email) DO NOTHING`,
-    [hash]
+     VALUES ($1, $2, $3, 'candidate') ON CONFLICT (email) DO NOTHING`,
+    [CANDIDATE.name, CANDIDATE.email, hash]
   );
 
   const { rows: cnt } = await pool.query('SELECT COUNT(*)::int AS n FROM vacancies');
@@ -130,14 +125,15 @@ async function seed({ quiet = false } = {}) {
         client.release();
       }
     }
-    log(`✔ Додано ${VACANCIES.length} демо-вакансій`);
+    log(`✔ Додано ${VACANCIES.length} вакансій`);
   } else {
     log('• Вакансії вже є — пропускаю');
   }
 
-  log('✔ Демо-акаунти (пароль для всіх: ' + PASSWORD + '):');
-  log('   кандидат:     candidate@demo.ua');
+  log('✔ Тестові акаунти (пароль: ' + TEST_PASSWORD + '):');
+  log(`   кандидат:     ${CANDIDATE.email}`);
   EMPLOYERS.forEach((e) => log(`   роботодавець: ${e.email}  (${e.company})`));
+  log(`   адміністратор: ${ADMIN.email} (пароль задається ADMIN_PASSWORD)`);
 }
 
 if (require.main === module) {

@@ -5,7 +5,7 @@ CREATE TABLE IF NOT EXISTS users (
   name          VARCHAR(120) NOT NULL,
   email         VARCHAR(255) NOT NULL UNIQUE,
   password_hash VARCHAR(255) NOT NULL,
-  role          VARCHAR(20)  NOT NULL CHECK (role IN ('candidate', 'employer')),
+  role          VARCHAR(20)  NOT NULL,
   created_at    TIMESTAMPTZ  NOT NULL DEFAULT now()
 );
 
@@ -82,4 +82,39 @@ CREATE TABLE IF NOT EXISTS applications (
   status     VARCHAR(20) NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'viewed', 'invited', 'rejected')),
   created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
   UNIQUE (user_id, vacancy_id)
+);
+
+-- ===== v1.1 (ЛР7, технічне обслуговування) =====
+
+-- Роль адміністратора: оновлюємо обмеження і в нових, і в уже існуючих базах
+ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
+ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (role IN ('candidate', 'employer', 'admin'));
+
+-- Звернення користувачів: помилки, пропозиції, питання
+CREATE TABLE IF NOT EXISTS feedback (
+  id          SERIAL PRIMARY KEY,
+  user_id     INTEGER REFERENCES users(id) ON DELETE SET NULL,
+  name        VARCHAR(120) NOT NULL DEFAULT '',
+  email       VARCHAR(255) NOT NULL DEFAULT '',
+  category    VARCHAR(20)  NOT NULL CHECK (category IN ('bug', 'idea', 'question', 'other')),
+  priority    VARCHAR(10)  NOT NULL DEFAULT 'normal' CHECK (priority IN ('low', 'normal', 'high', 'critical')),
+  page        VARCHAR(200) NOT NULL DEFAULT '',
+  message     TEXT NOT NULL,
+  rating      SMALLINT CHECK (rating BETWEEN 1 AND 5),
+  status      VARCHAR(20)  NOT NULL DEFAULT 'new' CHECK (status IN ('new', 'in_progress', 'resolved', 'rejected')),
+  admin_reply TEXT NOT NULL DEFAULT '',
+  user_agent  VARCHAR(300) NOT NULL DEFAULT '',
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_feedback_status ON feedback(status);
+CREATE INDEX IF NOT EXISTS idx_feedback_user ON feedback(user_id);
+
+-- Журнал серверних помилок (для коригувального обслуговування)
+CREATE TABLE IF NOT EXISTS error_log (
+  id         SERIAL PRIMARY KEY,
+  method     VARCHAR(10)  NOT NULL DEFAULT '',
+  path       VARCHAR(300) NOT NULL DEFAULT '',
+  message    TEXT NOT NULL DEFAULT '',
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
