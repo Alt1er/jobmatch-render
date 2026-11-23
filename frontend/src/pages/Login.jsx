@@ -59,7 +59,7 @@ export default function Login() {
           Немає акаунта? <Link to="/register">Зареєструватися</Link>
         </p>
 
-        {testAccounts && (
+        {/* {testAccounts && (
           <details className="test-box">
             <summary>Тестові акаунти для перевірки</summary>
             <div className="test-list">
@@ -79,7 +79,7 @@ export default function Login() {
             </div>
             <p className="small">Кнопка підставляє пошту й пароль у форму.</p>
           </details>
-        )}
+        )} */}
       </form>
     </div>
   );
